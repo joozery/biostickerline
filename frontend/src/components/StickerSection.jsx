@@ -8,7 +8,7 @@ export default function StickerSection() {
     const fetchStickers = async () => {
       try {
         const res = await axios.get(
-          'http://localhost:3001/api/stickers?q=cute&offset=0&limit=30'
+          'https://biosticker-api-f6c2a14f3a26.herokuapp.com/api/stickers?q=cute'
         );
         setStickers(res.data.items || []);
       } catch (error) {
