@@ -21,6 +21,24 @@ const api = {
     return response.json();
   },
   
+  getSlips: async (status = 'all') => {
+    const response = await fetch(`${API_BASE_URL}/slips?status=${status}&limit=50&t=${Date.now()}`);
+    if (!response.ok) throw new Error('Failed to fetch slips data');
+    return response.json();
+  },
+
+  getSlipsForSale: async (saleId) => {
+    const response = await fetch(`${API_BASE_URL}/slips?sale_id=${saleId}&t=${Date.now()}`);
+    if (!response.ok) throw new Error('Failed to fetch slips for sale');
+    return response.json();
+  },
+  
+  getSlipsByOrder: async (orderNumber) => {
+    const response = await fetch(`${API_BASE_URL}/slips?order_number=${orderNumber}&t=${Date.now()}`);
+    if (!response.ok) throw new Error('Failed to fetch slips by order');
+    return response.json();
+  },
+  
   updateSale: async (id, data) => {
     const response = await fetch(`${API_BASE_URL}/sales/${id}`, {
       method: 'PUT',
@@ -31,11 +49,29 @@ const api = {
     return response.json();
   },
   
+  updateSlip: async (id, data) => {
+    const response = await fetch(`${API_BASE_URL}/slips/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to update slip');
+    return response.json();
+  },
+  
   deleteSale: async (id) => {
     const response = await fetch(`${API_BASE_URL}/sales/${id}`, {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error('Failed to delete sale');
+    return response.json();
+  },
+  
+  deleteSlip: async (id) => {
+    const response = await fetch(`${API_BASE_URL}/slips/${id}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to delete slip');
     return response.json();
   },
   
@@ -137,6 +173,8 @@ function App() {
   const [salesData, setSalesData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
+  const [lastDataCount, setLastDataCount] = useState(0);
+  const [slipsData, setSlipsData] = useState([]);
   const { toast } = useToast();
 
   // ฟังก์ชันโหลดข้อมูลจาก API
@@ -144,30 +182,52 @@ function App() {
     try {
       setLoading(true);
       console.log('🔄 Loading sales data from:', `${API_BASE_URL}/sales`);
+      console.log('🔄 Loading slips data from:', `${API_BASE_URL}/slips`);
       
-      const data = await api.getSales();
-      console.log('✅ Sales data received:', data);
-      console.log('📊 Data length:', data.length);
+      const [salesData, slipsData] = await Promise.all([
+        api.getSales(),
+        api.getSlips()
+      ]);
       
-      setSalesData(data);
+      console.log('✅ Sales data received:', salesData);
+      console.log('✅ Slips data received:', slipsData);
+      console.log('📊 Sales length:', salesData.length);
+      console.log('📊 Slips length:', slipsData.length);
+      
+      // ตรวจสอบข้อมูลใหม่
+      const newDataCount = salesData.length;
+      const hasNewData = lastDataCount > 0 && newDataCount > lastDataCount;
+      
+      setSalesData(salesData);
+      setSlipsData(slipsData);
       setIsOnline(true);
       
       // บันทึกลง localStorage เป็น backup
-      localStorage.setItem('biostickerSalesData', JSON.stringify(data));
+      localStorage.setItem('biostickerSalesData', JSON.stringify(salesData));
+      localStorage.setItem('biostickerSlipsData', JSON.stringify(slipsData));
       localStorage.setItem('lastDataUpdate', new Date().toISOString());
       
       // แสดง toast เมื่อโหลดข้อมูลสำเร็จ
-      if (data.length > 0) {
+      if (hasNewData) {
+        const newRecords = newDataCount - lastDataCount;
+        toast({
+          title: "🎉 มีข้อมูลใหม่!",
+          description: `เพิ่มขึ้น ${newRecords} รายการ (รวม ${newDataCount} รายการ)`,
+        });
+      } else if (salesData.length > 0 || slipsData.length > 0) {
         toast({
           title: "✅ โหลดข้อมูลสำเร็จ",
-          description: `พบข้อมูลยอดขาย ${data.length} รายการ`,
+          description: `ยอดขาย ${salesData.length} รายการ, สลีป ${slipsData.length} รายการ`,
         });
       } else {
         toast({
-          title: "⚠️ ไม่พบข้อมูลยอดขาย",
+          title: "⚠️ ไม่พบข้อมูล",
           description: "ยังไม่มีข้อมูลในระบบ หรือลองรีเฟรชหน้าเว็บ",
         });
       }
+      
+      // อัพเดทจำนวนข้อมูลล่าสุด
+      setLastDataCount(newDataCount);
       
     } catch (error) {
       console.error('❌ Failed to load sales data:', error);
@@ -209,16 +269,16 @@ function App() {
     }
   }, [activeTab]);
 
-  // รีเฟรชข้อมูลทุก 30 วินาที เมื่อออนไลน์
-  useEffect(() => {
-    if (!isOnline) return;
-    
-    const interval = setInterval(() => {
-      loadSalesData();
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [isOnline]);
+  // ลบการรีเฟรชอัตโนมัติเพื่อป้องกันการรีเฟรชหน้าเว็บ
+  // useEffect(() => {
+  //   if (!isOnline) return;
+  //   
+  //   const interval = setInterval(() => {
+  //     loadSalesData();
+  //   }, 30000);
+  //   
+  //   return () => clearInterval(interval);
+  // }, [isOnline]);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -290,8 +350,9 @@ function App() {
       await api.updateSale(updatedSale.id, updatedSale);
       
       toast({ 
-        title: "✅ อัปเดตข้อมูลสำเร็จ", 
-        description: `รายการ ${updatedSale.orderNumber} ถูกอัปเดตแล้ว` 
+        title: "🎉 อัปเดตข้อมูลเรียบร้อย!", 
+        description: `รายการ ${updatedSale.orderNumber || `#${updatedSale.id}`} ของ ${updatedSale.lineName} ถูกอัปเดตเรียบร้อยแล้ว`,
+        duration: 4000
       });
 
       // รีเฟรชข้อมูล
@@ -302,6 +363,37 @@ function App() {
       toast({
         title: "❌ อัปเดตไม่สำเร็จ",
         description: "เกิดข้อผิดพลาดในการอัปเดตข้อมูล",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUpdateSlip = async (updatedSlip) => {
+    if (!isOnline) {
+      toast({
+        title: "❌ ไม่สามารถอัปเดตได้",
+        description: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await api.updateSlip(updatedSlip.id, updatedSlip);
+      
+      toast({ 
+        title: "✅ อัปเดตสลีปสำเร็จ", 
+        description: `สลีป #${updatedSlip.id} ถูกอัปเดตแล้ว` 
+      });
+
+      // รีเฟรชข้อมูล
+      await loadSalesData();
+      
+    } catch (error) {
+      console.error('❌ Update slip error:', error);
+      toast({
+        title: "❌ อัปเดตไม่สำเร็จ",
+        description: "เกิดข้อผิดพลาดในการอัปเดตสลีป",
         variant: "destructive"
       });
     }
@@ -340,6 +432,38 @@ function App() {
     }
   };
 
+  const handleDeleteSlip = async (slipId) => {
+    if (!isOnline) {
+      toast({
+        title: "❌ ไม่สามารถลบได้",
+        description: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await api.deleteSlip(slipId);
+      
+      toast({ 
+        title: "🗑️ ลบสลีปสำเร็จ", 
+        description: `สลีป #${slipId} ถูกลบแล้ว`, 
+        variant: "destructive" 
+      });
+
+      // รีเฟรชข้อมูล
+      await loadSalesData();
+      
+    } catch (error) {
+      console.error('❌ Delete slip error:', error);
+      toast({
+        title: "❌ ลบไม่สำเร็จ",
+        description: "เกิดข้อผิดพลาดในการลบสลีป",
+        variant: "destructive"
+      });
+    }
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -356,7 +480,7 @@ function App() {
       case 'dashboard':
         return <Dashboard salesData={salesData} isOnline={isOnline} />;
       case 'sales':
-        return <Sales salesData={salesData} onUpdateSale={handleUpdateSale} onDeleteSale={handleDeleteSale} isOnline={isOnline} />;
+        return <Sales salesData={salesData} slipsData={slipsData} onUpdateSale={handleUpdateSale} onDeleteSale={handleDeleteSale} isOnline={isOnline} />;
       case 'accounts':
         return <Accounts salesData={salesData} />;
       case 'upload':

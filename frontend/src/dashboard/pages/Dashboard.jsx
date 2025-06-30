@@ -17,8 +17,10 @@ const StatCard = ({ title, value, icon: Icon, colorClass, subtitle }) => (
   </div>
 );
 
-const Dashboard = ({ salesData = [] }) => {
-  console.log('Dashboard salesData:', salesData); // Debug log
+const Dashboard = ({ salesData = [], isOnline }) => {
+  console.log('📊 Dashboard salesData:', salesData); // Debug log
+  console.log('🔢 Dashboard data length:', salesData.length);
+  console.log('🌐 Dashboard online status:', isOnline);
   
   // คำนวณสถิติ
   const totalSales = salesData.reduce((sum, sale) => sum + sale.amount, 0);

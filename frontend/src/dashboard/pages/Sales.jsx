@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Download, Eye, Edit, Trash2, Upload, Bot, Calendar, User, Package, DollarSign, CheckCircle, XCircle } from 'lucide-react';
+import { Search, Download, Eye, Edit, Trash2, Upload, Bot, Calendar, User, Package, DollarSign, CheckCircle, XCircle, ImageIcon } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useToast } from '../components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../components/ui/dialog';
@@ -117,7 +117,7 @@ const SaleCard = ({ sale, onView, onEdit, onDelete, onVerify, onReject }) => (
   </div>
 );
 
-const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
+const Sales = ({ salesData, slipsData = [], onUpdateSale, onDeleteSale, isOnline }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -128,6 +128,63 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
 
   console.log('📊 Sales component received data:', salesData);
   console.log('🔢 Sales data length:', salesData.length);
+  console.log('🖼️ Slips component received data:', slipsData);
+  console.log('🔢 Slips data length:', slipsData.length);
+
+  // ฟังก์ชันหาสลีปที่เกี่ยวข้องกับการขายโดยเฉพาะ
+  const [saleSlips, setSaleSlips] = useState({});
+  const [loadingSlips, setLoadingSlips] = useState({});
+
+  const getRelatedSlips = async (sale) => {
+    if (!sale?.id) return [];
+    
+    // ถ้าเคยโหลดแล้ว ส่งค่าที่เก็บไว้
+    if (saleSlips[sale.id]) {
+      return saleSlips[sale.id];
+    }
+    
+    // ถ้ากำลังโหลดอยู่ ส่งค่าว่าง
+    if (loadingSlips[sale.id]) {
+      return [];
+    }
+    
+    try {
+      setLoadingSlips(prev => ({ ...prev, [sale.id]: true }));
+      
+      console.log('🔍 Loading slips for sale:', sale);
+      
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://biosticker-backend-9178b2fa5a35.herokuapp.com/api';
+      
+      // ลองหาจาก sale_id ก่อน
+      let response = await fetch(`${API_BASE_URL}/slips?sale_id=${sale.id}&t=${Date.now()}`);
+      let relatedSlips = [];
+      
+      if (response.ok) {
+        relatedSlips = await response.json();
+        console.log('✅ Found slips by sale_id:', relatedSlips.length);
+      }
+      
+      // ถ้าไม่เจอ ลองหาจาก order_number
+      if (relatedSlips.length === 0 && sale.orderNumber) {
+        response = await fetch(`${API_BASE_URL}/slips?order_number=${sale.orderNumber}&t=${Date.now()}`);
+        if (response.ok) {
+          relatedSlips = await response.json();
+          console.log('✅ Found slips by order_number:', relatedSlips.length);
+        }
+      }
+      
+      // เก็บผลลัพธ์
+      setSaleSlips(prev => ({ ...prev, [sale.id]: relatedSlips }));
+      
+      return relatedSlips;
+      
+    } catch (error) {
+      console.error('❌ Error loading slips for sale:', error);
+      return [];
+    } finally {
+      setLoadingSlips(prev => ({ ...prev, [sale.id]: false }));
+         }
+   };
 
   // ค้นหา ORDER NUMBER ที่ user กำลังถามหา
   const orderORD94902550 = salesData.find(sale => 
@@ -204,6 +261,40 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
     }
   };
 
+  // ฟังก์ชันตรวจสอบข้อมูลเฉพาะ (ORD95634484)
+  const checkSpecificOrder = () => {
+    const targetOrders = ['ORD95634484', 'ORD94902550', 'ORD94920407'];
+    const foundOrders = salesData.filter(sale => 
+      targetOrders.includes(sale.orderNumber) ||
+      sale.lineName?.includes('Juu') ||
+      sale.product?.includes('สติกเกอร์หมี')
+    );
+    
+    console.log('🎯 Target orders:', targetOrders);
+    console.log('🔍 Found matching orders:', foundOrders);
+    console.log('📊 All orders in system:', salesData.map(s => ({
+      id: s.id,
+      orderNumber: s.orderNumber,
+      lineName: s.lineName,
+      product: s.product,
+      amount: s.amount,
+      date: s.date
+    })));
+    
+    if (foundOrders.length > 0) {
+      toast({
+        title: "🎯 พบข้อมูลแล้ว!",
+        description: `พบ ${foundOrders.length} รายการที่ตรงกัน ตรวจสอบ Console`,
+      });
+    } else {
+      toast({
+        title: "❌ ไม่พบข้อมูล",
+        description: "ไม่พบออเดอร์ที่ค้นหา ตรวจสอบ Console สำหรับรายละเอียด",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredSalesData = salesData.filter(sale => {
     const matchesSearch = (sale.lineName && sale.lineName.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          sale.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -244,8 +335,9 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
     onUpdateSale(updatedSale);
     setViewingSale(null);
     toast({
-      title: "✅ ตรวจสอบสำเร็จ!",
-      description: `รายการ ${sale.orderNumber || `#${sale.id}`} ได้รับการอนุมัติแล้ว`,
+      title: "🎉 ตรวจสอบเรียบร้อย!",
+      description: `รายการ ${sale.orderNumber || `#${sale.id}`} ของ ${sale.lineName} ยอด ฿${sale.amount.toLocaleString()} ได้รับการอนุมัติเรียบร้อยแล้ว`,
+      duration: 5000, // แสดง 5 วินาที
     });
   };
 
@@ -254,9 +346,10 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
     onUpdateSale(updatedSale);
     setViewingSale(null);
     toast({
-      title: "❌ ปฏิเสธรายการ",
-      description: `รายการ ${sale.orderNumber || `#${sale.id}`} ถูกปฏิเสธแล้ว`,
-      variant: "destructive"
+      title: "❌ ปฏิเสธรายการเรียบร้อย",
+      description: `รายการ ${sale.orderNumber || `#${sale.id}`} ของ ${sale.lineName} ยอด ฿${sale.amount.toLocaleString()} ถูกปฏิเสธแล้ว`,
+      variant: "destructive",
+      duration: 5000, // แสดง 5 วินาที
     });
   };
 
@@ -343,6 +436,11 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-600">
               แสดง {filteredSalesData.length} รายการ จากทั้งหมด {salesData.length} รายการ
+              {slipsData.length > 0 && (
+                <span className="ml-2 text-blue-600">
+                  | มีสลีป {slipsData.length} รูป
+                </span>
+              )}
             </p>
             <p className="text-xs text-gray-500">
               📡 {isOnline ? 'ออนไลน์' : 'ออฟไลน์'}
@@ -363,9 +461,17 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
                      onClick={handleDebug} 
                      size="sm" 
                      variant="outline"
-                     className="text-xs border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                     className="text-xs border-yellow-300 text-yellow-700 hover:bg-yellow-100 mr-2"
                    >
                      🔍 ตรวจสอบฐานข้อมูล
+                   </Button>
+                   <Button 
+                     onClick={checkSpecificOrder} 
+                     size="sm" 
+                     variant="outline"
+                     className="text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                   >
+                     🎯 ค้นหาออเดอร์ Juu
                    </Button>
                  </div>
                </div>
@@ -525,7 +631,7 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
       {/* View Sale Dialog */}
       {viewingSale && (
         <Dialog open={!!viewingSale} onOpenChange={() => setViewingSale(null)}>
-          <DialogContent className="max-w-md bg-gradient-to-br from-emerald-50 to-green-100 border-emerald-200">
+          <DialogContent className="max-w-2xl bg-gradient-to-br from-emerald-50 to-green-100 border-emerald-200">
             <DialogHeader>
               <DialogTitle>รายละเอียดการขาย</DialogTitle>
               <DialogDescription>
@@ -533,28 +639,186 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              {viewingSale.slipImage && (
-                <img src={viewingSale.slipImage} alt="สลิป" className="rounded-lg w-full max-h-64 object-contain" />
-              )}
-              <div className="space-y-2 text-sm">
-                <p><strong>หมายเลขออเดอร์:</strong> {viewingSale.orderNumber || `#${viewingSale.id}`}</p>
-                <p><strong>สินค้า:</strong> {viewingSale.product}</p>
-                <p><strong>จำนวน:</strong> {viewingSale.quantity} ชิ้น</p>
-                <p><strong>ยอดเงิน:</strong> ฿{viewingSale.amount.toLocaleString()}</p>
-                <p><strong>ที่มา:</strong> {viewingSale.source}</p>
-                <p><strong>วิธีชำระเงิน:</strong> {viewingSale.paymentMethod || 'ไม่ระบุ'}</p>
-                {viewingSale.phoneNumber && <p><strong>เบอร์โทร:</strong> {viewingSale.phoneNumber}</p>}
-                {viewingSale.note && <p><strong>หมายเหตุ:</strong> {viewingSale.note}</p>}
-                <p><strong>สถานะ:</strong> 
-                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                    viewingSale.status === 'verified' ? 'bg-green-100 text-green-700' : 
-                    viewingSale.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {viewingSale.status === 'verified' ? 'ตรวจสอบแล้ว' : 
-                     viewingSale.status === 'pending' ? 'รอตรวจสอบ' : 'ปฏิเสธ'}
-                  </span>
-                </p>
+              {/* ข้อมูลการขาย */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 text-sm">
+                  <p><strong>หมายเลขออเดอร์:</strong> {viewingSale.orderNumber || `#${viewingSale.id}`}</p>
+                  <p><strong>สินค้า:</strong> {viewingSale.product}</p>
+                  <p><strong>จำนวน:</strong> {viewingSale.quantity} ชิ้น</p>
+                  <p><strong>ยอดเงิน:</strong> ฿{viewingSale.amount.toLocaleString()}</p>
+                  <p><strong>ที่มา:</strong> {viewingSale.source}</p>
+                  <p><strong>วิธีชำระเงิน:</strong> {viewingSale.paymentMethod || 'ไม่ระบุ'}</p>
+                  {viewingSale.phoneNumber && <p><strong>เบอร์โทร:</strong> {viewingSale.phoneNumber}</p>}
+                  {viewingSale.note && <p><strong>หมายเหตุ:</strong> {viewingSale.note}</p>}
+                  <p><strong>สถานะ:</strong> 
+                    <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                      viewingSale.status === 'verified' ? 'bg-green-100 text-green-700' : 
+                      viewingSale.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {viewingSale.status === 'verified' ? 'ตรวจสอบแล้ว' : 
+                       viewingSale.status === 'pending' ? 'รอตรวจสอบ' : 'ปฏิเสธ'}
+                    </span>
+                  </p>
+                </div>
+
+                {/* สลีปที่เกี่ยวข้อง */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm flex items-center">
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    สลีปที่เกี่ยวข้อง
+                  </h4>
+                  {(() => {
+                    const relatedSlips = saleSlips[viewingSale.id] || [];
+                    const loading = loadingSlips[viewingSale.id];
+                    
+                    // โหลดสลีปถ้ายังไม่ได้โหลด
+                    if (!relatedSlips.length && !loading && !saleSlips[viewingSale.id]) {
+                      getRelatedSlips(viewingSale);
+                    }
+                    
+                    if (loading) {
+                      return (
+                        <div className="text-sm text-gray-500 bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                          <p className="text-center">กำลังโหลดสลีป...</p>
+                        </div>
+                      );
+                    }
+                    
+                    if (relatedSlips.length === 0) {
+                      return (
+                        <div className="text-sm text-gray-500 bg-orange-50 border border-orange-200 p-3 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center">
+                              <ImageIcon className="w-6 h-6 text-orange-400 mr-2" />
+                              <p className="font-medium text-orange-700">ไม่พบสลีปที่เกี่ยวข้อง</p>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                setSaleSlips(prev => ({ ...prev, [viewingSale.id]: undefined }));
+                                getRelatedSlips(viewingSale);
+                              }}
+                              className="text-xs px-2 py-1 bg-orange-100 text-orange-600 rounded hover:bg-orange-200 transition-colors"
+                            >
+                              🔄 รีเฟรช
+                            </button>
+                          </div>
+                          <p className="text-xs text-center text-orange-600">
+                            💡 ลองรีเฟรชหากเพิ่งส่งสลีปมาใหม่
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-green-600">
+                            ✅ พบสลีป {relatedSlips.length} รูป
+                          </span>
+                          <button 
+                            onClick={() => {
+                              setSaleSlips(prev => ({ ...prev, [viewingSale.id]: undefined }));
+                              getRelatedSlips(viewingSale);
+                            }}
+                            className="text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                          >
+                            🔄 รีเฟรช
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-4 max-h-80 overflow-y-auto">
+                          {relatedSlips.map((slip) => (
+                            <div key={slip.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                              {/* รูปสลีปด้านบน */}
+                              <div className="flex justify-center bg-gray-50 p-4">
+                                {slip.optimized_url ? (
+                                  <img 
+                                    src={slip.optimized_url} 
+                                    alt={`สลีป #${slip.id}`}
+                                    className="max-w-full max-h-64 object-contain rounded-lg shadow-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => {
+                                      if (slip.optimized_url) {
+                                        window.open(slip.optimized_url, '_blank');
+                                      }
+                                    }}
+                                    onError={(e) => {
+                                      e.target.src = slip.image_url || '/placeholder-image.png';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-64 h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                    <ImageIcon className="w-12 h-12 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* ข้อมูลสลีปด้านล่าง */}
+                              <div className="p-4 bg-white">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <p className="text-gray-600"><strong>ID สลีป:</strong> #{slip.id}</p>
+                                    <p className="text-gray-600"><strong>User ID:</strong></p>
+                                    <p className="text-xs text-gray-500 break-all">{slip.user_id || 'ไม่ระบุ'}</p>
+                                    {slip.message_id && (
+                                      <>
+                                        <p className="text-gray-600 mt-1"><strong>Message ID:</strong></p>
+                                        <p className="text-xs text-gray-500 break-all">{slip.message_id}</p>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-600"><strong>ขนาดไฟล์:</strong> {slip.file_size ? (slip.file_size / 1024).toFixed(1) + ' KB' : 'ไม่ทราบ'}</p>
+                                    <p className="text-gray-600"><strong>ขนาดรูป:</strong> {slip.image_width && slip.image_height ? `${slip.image_width}x${slip.image_height}` : 'ไม่ทราบ'}</p>
+                                    <p className="text-gray-600"><strong>สถานะ:</strong> 
+                                      <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                                        slip.status === 'verified' ? 'bg-green-100 text-green-700' : 
+                                        slip.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                      }`}>
+                                        {slip.status === 'verified' ? 'ตรวจสอบแล้ว' : 
+                                         slip.status === 'pending' ? 'รอตรวจสอบ' : 'ปฏิเสธ'}
+                                      </span>
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {/* วันที่อัปโหลด */}
+                                <div className="mt-3 pt-3 border-t border-gray-100 text-center">
+                                  <p className="text-sm text-gray-600">
+                                    อัปโหลดเมื่อ: {new Date(slip.upload_date).toLocaleDateString('th-TH')} {new Date(slip.upload_date).toLocaleTimeString('th-TH')}
+                                  </p>
+                                </div>
+                                
+                                {/* ลิงก์ดูรูปต้นฉบับ */}
+                                {slip.image_url && (
+                                  <div className="mt-2 text-center">
+                                    <a 
+                                      href={slip.image_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-blue-600 hover:text-blue-800 underline"
+                                    >
+                                      🔗 ดูรูปต้นฉบับ
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
+
+              {/* แสดงสลีปเก่าถ้ามี */}
+              {viewingSale.slipImage && (
+                <div className="mt-4 border-t pt-4">
+                  <h4 className="font-semibold text-sm mb-2">สลีปเดิม (จากข้อมูลการขาย)</h4>
+                  <img src={viewingSale.slipImage} alt="สลิปเดิม" className="rounded-lg w-full max-h-64 object-contain border border-gray-200" />
+                </div>
+              )}
             </div>
 
             {/* Action Buttons for Pending Status */}
