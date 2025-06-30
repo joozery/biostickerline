@@ -16,7 +16,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://biosticker-backend
 // API Functions
 const api = {
   getSales: async (status = 'all') => {
-    const response = await fetch(`${API_BASE_URL}/sales?status=${status}&limit=100`);
+    const response = await fetch(`${API_BASE_URL}/sales?status=${status}&limit=100&t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed to fetch sales data');
     return response.json();
   },
@@ -143,13 +143,31 @@ function App() {
   const loadSalesData = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Loading sales data from:', `${API_BASE_URL}/sales`);
+      
       const data = await api.getSales();
+      console.log('✅ Sales data received:', data);
+      console.log('📊 Data length:', data.length);
+      
       setSalesData(data);
       setIsOnline(true);
       
       // บันทึกลง localStorage เป็น backup
       localStorage.setItem('biostickerSalesData', JSON.stringify(data));
       localStorage.setItem('lastDataUpdate', new Date().toISOString());
+      
+      // แสดง toast เมื่อโหลดข้อมูลสำเร็จ
+      if (data.length > 0) {
+        toast({
+          title: "✅ โหลดข้อมูลสำเร็จ",
+          description: `พบข้อมูลยอดขาย ${data.length} รายการ`,
+        });
+      } else {
+        toast({
+          title: "⚠️ ไม่พบข้อมูลยอดขาย",
+          description: "ยังไม่มีข้อมูลในระบบ หรือลองรีเฟรชหน้าเว็บ",
+        });
+      }
       
     } catch (error) {
       console.error('❌ Failed to load sales data:', error);
@@ -158,10 +176,11 @@ function App() {
       // ใช้ข้อมูลจาก localStorage หรือ mock data
       const savedData = localStorage.getItem('biostickerSalesData');
       if (savedData) {
-        setSalesData(JSON.parse(savedData));
+        const parsedData = JSON.parse(savedData);
+        setSalesData(parsedData);
         toast({
           title: "⚠️ โหลดข้อมูลออฟไลน์",
-          description: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ ใช้ข้อมูลล่าสุดที่บันทึกไว้",
+          description: `ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ ใช้ข้อมูลล่าสุด ${parsedData.length} รายการ`,
           variant: "destructive"
         });
       } else {
@@ -169,7 +188,7 @@ function App() {
         setSalesData(mockData);
         toast({
           title: "⚠️ ใช้ข้อมูลตัวอย่าง",
-          description: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ แสดงข้อมูลตัวอย่าง",
+          description: `ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ แสดงข้อมูลตัวอย่าง ${mockData.length} รายการ`,
           variant: "destructive"
         });
       }
@@ -182,6 +201,13 @@ function App() {
   useEffect(() => {
     loadSalesData();
   }, []);
+
+  // โหลดข้อมูลใหม่เมื่อ tab เปลี่ยนเป็น sales หรือ dashboard
+  useEffect(() => {
+    if (activeTab === 'sales' || activeTab === 'dashboard') {
+      loadSalesData();
+    }
+  }, [activeTab]);
 
   // รีเฟรชข้อมูลทุก 30 วินาที เมื่อออนไลน์
   useEffect(() => {

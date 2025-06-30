@@ -117,13 +117,92 @@ const SaleCard = ({ sale, onView, onEdit, onDelete, onVerify, onReject }) => (
   </div>
 );
 
-const Sales = ({ salesData, onUpdateSale, onDeleteSale }) => {
+const Sales = ({ salesData, onUpdateSale, onDeleteSale, isOnline }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [viewingSale, setViewingSale] = useState(null);
   const [editingSale, setEditingSale] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
+
+  console.log('📊 Sales component received data:', salesData);
+  console.log('🔢 Sales data length:', salesData.length);
+
+  // ค้นหา ORDER NUMBER ที่ user กำลังถามหา
+  const orderORD94902550 = salesData.find(sale => 
+    sale.orderNumber === 'ORD94902550' || 
+    sale.orderNumber === 'ORD94920407' ||
+    sale.product?.includes('สติกเกอร์หมี') ||
+    sale.lineName === 'Juu'
+  );
+  
+  if (orderORD94902550) {
+    console.log('🎯 Found order:', orderORD94902550);
+  } else {
+    console.log('❌ ไม่พบออเดอร์ ORD94902550 ในข้อมูล');
+    console.log('📋 ออเดอร์ที่มีในระบบ:', salesData.map(s => s.orderNumber).filter(Boolean));
+  }
+
+  // ฟังก์ชันรีเฟรชข้อมูล
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://biosticker-backend-9178b2fa5a35.herokuapp.com/api';
+      const response = await fetch(`${API_BASE_URL}/sales?status=all&limit=100&t=${Date.now()}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const freshData = await response.json();
+      console.log('🔄 Fresh data received:', freshData);
+      
+      // ส่งข้อมูลใหม่ไปยัง parent component
+      window.location.reload(); // รีโหลดหน้าเพื่อให้ข้อมูลอัพเดท
+      
+      toast({
+        title: "🔄 รีเฟรชข้อมูลสำเร็จ",
+        description: `อัพเดทข้อมูล ${freshData.length} รายการ`,
+      });
+    } catch (error) {
+      console.error('❌ Refresh error:', error);
+      toast({
+        title: "❌ รีเฟรชไม่สำเร็จ",
+        description: `เกิดข้อผิดพลาด: ${error.message}`,
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // ฟังก์ชันดีบั๊กฐานข้อมูล
+  const handleDebug = async () => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://biosticker-backend-9178b2fa5a35.herokuapp.com/api';
+      const response = await fetch(`${API_BASE_URL}/debug`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const debugData = await response.json();
+      console.log('🔍 Debug data:', debugData);
+      
+      toast({
+        title: "🔍 ข้อมูลดีบั๊ก",
+        description: "ตรวจสอบ Console (F12) เพื่อดูข้อมูลฐานข้อมูล",
+      });
+    } catch (error) {
+      console.error('❌ Debug error:', error);
+      toast({
+        title: "❌ ดีบั๊กไม่สำเร็จ",
+        description: `เกิดข้อผิดพลาด: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  };
 
   const filteredSalesData = salesData.filter(sale => {
     const matchesSearch = (sale.lineName && sale.lineName.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -237,8 +316,21 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale }) => {
             </select>
           </div>
           
-          <div className="flex items-end">
-            <Button onClick={handleExport} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-sm">
+          <div className="flex items-end gap-2">
+            <Button 
+              onClick={handleRefresh} 
+              disabled={refreshing}
+              className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
+            >
+              {refreshing ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              ) : (
+                <Search className="w-4 h-4 mr-2" />
+              )}
+              <span className="hidden sm:inline">{refreshing ? 'กำลังรีเฟรช...' : 'รีเฟรชข้อมูล'}</span>
+              <span className="sm:hidden">รีเฟรช</span>
+            </Button>
+            <Button onClick={handleExport} className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm">
               <Download className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">ส่งออกข้อมูล</span>
               <span className="sm:hidden">ส่งออก</span>
@@ -246,11 +338,53 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale }) => {
           </div>
         </div>
         
-        {/* Results Count */}
+        {/* Results Count & Debug Info */}
         <div className="mt-4 pt-4 border-t border-gray-100">
-          <p className="text-sm text-gray-600">
-            แสดง {filteredSalesData.length} รายการ จากทั้งหมด {salesData.length} รายการ
-          </p>
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-600">
+              แสดง {filteredSalesData.length} รายการ จากทั้งหมด {salesData.length} รายการ
+            </p>
+            <p className="text-xs text-gray-500">
+              📡 {isOnline ? 'ออนไลน์' : 'ออฟไลน์'}
+            </p>
+          </div>
+          
+          {/* Debug Info when no data */}
+          {salesData.length === 0 && (
+            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h4 className="text-sm font-semibold text-yellow-800 mb-2">🔍 ข้อมูลการดีบั๊ก</h4>
+              <div className="text-xs text-yellow-700 space-y-1">
+                <p>📊 จำนวนข้อมูล: {salesData.length} รายการ</p>
+                <p>🌐 สถานะ: {isOnline ? '✅ เชื่อมต่อแล้ว' : '❌ ไม่สามารถเชื่อมต่อ'}</p>
+                <p>🔗 API: biosticker-backend-9178b2fa5a35.herokuapp.com</p>
+                                 <p>💡 ลองกด "รีเฟรชข้อมูล" หากเพิ่งส่งข้อมูลจาก LINE Bot</p>
+                 <div className="mt-2">
+                   <Button 
+                     onClick={handleDebug} 
+                     size="sm" 
+                     variant="outline"
+                     className="text-xs border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                   >
+                     🔍 ตรวจสอบฐานข้อมูล
+                   </Button>
+                 </div>
+               </div>
+             </div>
+           )}
+          
+          {/* ORD Debug Info */}
+          {salesData.length > 0 && !orderORD94902550 && (
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="text-sm font-semibold text-blue-800 mb-2">🔍 ไม่พบออเดอร์ ORD94902550</h4>
+              <div className="text-xs text-blue-700 space-y-1">
+                <p>📋 ออเดอร์ที่มีในระบบ:</p>
+                <p className="font-mono bg-white px-2 py-1 rounded text-blue-800">
+                  {salesData.map(s => s.orderNumber || `#${s.id}`).join(', ') || 'ไม่มีออเดอร์'}
+                </p>
+                <p>💡 หากเพิ่งส่งข้อมูลใหม่ ลองรอสักครู่แล้วรีเฟรช</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
