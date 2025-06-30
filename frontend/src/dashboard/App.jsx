@@ -168,7 +168,7 @@ const generateMockSalesData = () => {
   return mockData.sort((a, b) => new Date(b.date) - new Date(a.date));
 };
 
-function App() {
+function App({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [salesData, setSalesData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -500,7 +500,13 @@ function App() {
       </Helmet>
 
       <div className="min-h-screen bg-green-50">
-        <Header activeTab={activeTab} setActiveTab={setActiveTab} isOnline={isOnline} />
+        <Header 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          isOnline={isOnline} 
+          user={user}
+          onLogout={onLogout}
+        />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Status Indicator */}
           {!isOnline && (

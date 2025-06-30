@@ -3,21 +3,24 @@ import { motion } from 'framer-motion';
 import { Upload, TrendingUp, User, DollarSign, Link as LinkIcon, LogOut, ChevronDown, Menu, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
-const Header = ({ activeTab, setActiveTab }) => {
+const Header = ({ activeTab, setActiveTab, user, onLogout }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   
-  // Mock user data - ในการใช้งานจริงควรดึงจาก context หรือ state management
-  const currentUser = {
+  // ใช้ข้อมูลผู้ใช้จาก props หรือ default
+  const currentUser = user || {
     name: 'Admin User',
     email: 'admin@biosticker.co',
     role: 'Administrator'
   };
 
   const handleLogout = () => {
-    // ในการใช้งานจริงควรเคลียร์ token และ redirect ไป login page
     if (confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
-      window.location.href = '/';
+      if (onLogout) {
+        onLogout();
+      } else {
+        window.location.href = '/';
+      }
     }
   };
 
@@ -98,7 +101,8 @@ const Header = ({ activeTab, setActiveTab }) => {
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                   <div className="px-4 py-3 border-b border-gray-100">
                     <p className="text-sm font-medium text-gray-900">{currentUser.name}</p>
-                    <p className="text-xs text-gray-500">{currentUser.email}</p>
+                    <p className="text-xs text-gray-500">{currentUser.username}@biosticker.co</p>
+                    <p className="text-xs text-gray-400">{currentUser.role}</p>
                   </div>
                   
                   <div className="py-1">
@@ -182,7 +186,8 @@ const Header = ({ activeTab, setActiveTab }) => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">{currentUser.name}</p>
-                  <p className="text-xs text-gray-500">{currentUser.email}</p>
+                  <p className="text-xs text-gray-500">{currentUser.username}@biosticker.co</p>
+                  <p className="text-xs text-gray-400">{currentUser.role}</p>
                 </div>
               </div>
               

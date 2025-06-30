@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, TrendingUp, DollarSign, Users, UserCheck, Calendar, ShoppingCart, CheckCircle, Clock } from 'lucide-react';
 
@@ -18,19 +18,89 @@ const StatCard = ({ title, value, icon: Icon, colorClass, subtitle }) => (
 );
 
 const Dashboard = ({ salesData = [], isOnline }) => {
-  console.log('📊 Dashboard salesData:', salesData); // Debug log
+  const [stats, setStats] = useState({
+    totalSales: 0,
+    totalRevenue: 0,
+    averagePerOrder: 0,
+    pendingSales: 0,
+    pendingSlips: 0,
+    todaySales: 0,
+    topProducts: [],
+    totalSlips: 0
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // โหลดสถิติจาก API
+  useEffect(() => {
+    const loadStats = async () => {
+      if (!isOnline) {
+        setLoadingStats(false);
+        return;
+      }
+
+      try {
+        setLoadingStats(true);
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://biosticker-backend-9178b2fa5a35.herokuapp.com/api';
+        const response = await fetch(`${API_BASE_URL}/stats?t=${Date.now()}`);
+        
+        if (response.ok) {
+          const statsData = await response.json();
+          console.log('📊 Stats from API:', statsData);
+          setStats(statsData);
+        } else {
+          console.error('❌ Failed to fetch stats:', response.status);
+          // ใช้การคำนวณจาก salesData แทน
+          fallbackCalculation();
+        }
+      } catch (error) {
+        console.error('❌ Stats API error:', error);
+        // ใช้การคำนวณจาก salesData แทน
+        fallbackCalculation();
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    const fallbackCalculation = () => {
+      const totalRevenue = salesData.reduce((sum, sale) => {
+        const amount = parseFloat(sale.amount) || 0;
+        return sum + amount;
+      }, 0);
+      const totalOrders = salesData.length;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+      setStats({
+        totalSales: totalOrders,
+        totalRevenue: totalRevenue,
+        averagePerOrder: avgOrderValue,
+        pendingSales: salesData.filter(sale => sale.status === 'pending').length,
+        pendingSlips: 0,
+        todaySales: salesData.filter(sale => {
+          const today = new Date().toISOString().split('T')[0];
+          return sale.date === today;
+        }).length,
+        topProducts: [],
+        totalSlips: 0
+      });
+    };
+
+    loadStats();
+  }, [salesData, isOnline]);
+
+  console.log('📊 Dashboard salesData:', salesData);
+  console.log('📊 Dashboard stats:', stats);
   console.log('🔢 Dashboard data length:', salesData.length);
   console.log('🌐 Dashboard online status:', isOnline);
   
-  // คำนวณสถิติ
-  const totalSales = salesData.reduce((sum, sale) => sum + sale.amount, 0);
-  const totalOrders = salesData.length;
-  const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+  // ใช้ข้อมูลจาก API stats หรือ fallback calculation
+  const totalSales = stats.totalRevenue || 0;
+  const totalOrders = stats.totalSales || salesData.length;
+  const avgOrderValue = stats.averagePerOrder || 0;
 
-  // สถิติเพิ่มเติม
+  // สถิติเพิ่มเติม - ใช้จาก API หรือคำนวณจาก salesData
   const verifiedOrders = salesData.filter(sale => sale.status === 'verified').length;
-  const pendingOrders = salesData.filter(sale => sale.status === 'pending').length;
-  const todayOrders = salesData.filter(sale => {
+  const pendingOrders = stats.pendingSales || salesData.filter(sale => sale.status === 'pending').length;
+  const todayOrders = stats.todaySales || salesData.filter(sale => {
     const today = new Date().toISOString().split('T')[0];
     return sale.date === today;
   }).length;
@@ -40,7 +110,7 @@ const Dashboard = ({ salesData = [], isOnline }) => {
     if (!acc[sale.lineName]) {
       acc[sale.lineName] = { totalSales: 0, orderCount: 0, lineName: sale.lineName };
     }
-    acc[sale.lineName].totalSales += sale.amount;
+    acc[sale.lineName].totalSales += parseFloat(sale.amount) || 0;
     acc[sale.lineName].orderCount += 1;
     return acc;
   }, {});
@@ -48,20 +118,23 @@ const Dashboard = ({ salesData = [], isOnline }) => {
   const uniqueCustomers = Object.keys(salesByPerson).length;
   const topCustomers = Object.values(salesByPerson).sort((a, b) => b.totalSales - a.totalSales).slice(0, 5);
 
-  // วิเคราะห์สินค้า
-  const productStats = salesData.reduce((acc, sale) => {
-    if (!acc[sale.product]) {
-      acc[sale.product] = { count: 0, revenue: 0 };
-    }
-    acc[sale.product].count += sale.quantity;
-    acc[sale.product].revenue += sale.amount;
-    return acc;
-  }, {});
+  // วิเคราะห์สินค้า - ใช้จาก API หรือคำนวณจาก salesData
+  const productStats = stats.topProducts.length > 0 ? stats.topProducts : 
+    salesData.reduce((acc, sale) => {
+      if (!acc[sale.product]) {
+        acc[sale.product] = { count: 0, revenue: 0 };
+      }
+      acc[sale.product].count += sale.quantity || 1;
+      acc[sale.product].revenue += parseFloat(sale.amount) || 0;
+      return acc;
+    }, {});
 
-  const topProducts = Object.entries(productStats)
-    .map(([product, stats]) => ({ product, ...stats }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
+  const topProducts = stats.topProducts.length > 0 ? 
+    stats.topProducts.map(p => ({ product: p.product_name, count: p.total_qty, revenue: p.total_amount })) :
+    Object.entries(productStats)
+      .map(([product, stats]) => ({ product, ...stats }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
 
   // ข้อมูลการขายรายวัน (7 วันล่าสุด)
   const dailySales = salesData.reduce((acc, sale) => {
@@ -69,7 +142,7 @@ const Dashboard = ({ salesData = [], isOnline }) => {
     if (!acc[date]) {
       acc[date] = { date, amount: 0, orders: 0 };
     }
-    acc[date].amount += sale.amount;
+    acc[date].amount += parseFloat(sale.amount) || 0;
     acc[date].orders += 1;
     return acc;
   }, {});
@@ -77,6 +150,18 @@ const Dashboard = ({ salesData = [], isOnline }) => {
   const recentDays = Object.values(dailySales)
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 7);
+
+  // แสดง loading ถ้ากำลังโหลดสถิติ
+  if (loadingStats && isOnline) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดสถิติ...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -89,7 +174,7 @@ const Dashboard = ({ salesData = [], isOnline }) => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <StatCard 
           title="ยอดขายรวม" 
-          value={`฿${totalSales.toLocaleString()}`} 
+          value={`฿${totalSales.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} 
           subtitle={`จากทั้งหมด ${totalOrders} ออเดอร์`}
           icon={DollarSign} 
           colorClass="text-emerald-600" 
@@ -164,7 +249,7 @@ const Dashboard = ({ salesData = [], isOnline }) => {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0 ml-2">
-                  <p className="font-bold text-emerald-600 text-sm sm:text-base">฿{sale.amount.toLocaleString()}</p>
+                  <p className="font-bold text-emerald-600 text-sm sm:text-base">฿{(parseFloat(sale.amount) || 0).toLocaleString()}</p>
                   <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">{new Date(sale.date).toLocaleDateString('th-TH')}</p>
                   <span className={`text-xs px-2 py-1 rounded-full ${
                     sale.status === 'verified' ? 'bg-green-100 text-green-700' : 
@@ -222,7 +307,7 @@ const Dashboard = ({ salesData = [], isOnline }) => {
                     <p className="text-xs sm:text-sm text-gray-500">ขายแล้ว {item.count} ชิ้น</p>
                   </div>
                 </div>
-                <p className="font-bold text-emerald-600 text-sm sm:text-base flex-shrink-0">฿{item.revenue.toLocaleString()}</p>
+                <p className="font-bold text-emerald-600 text-sm sm:text-base flex-shrink-0">฿{(parseFloat(item.revenue) || 0).toLocaleString()}</p>
               </div>
             ))}
           </div>
