@@ -11,7 +11,7 @@ import UploadPage from './pages/Upload';
 import Integration from './pages/Integration';
 
 // API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://biosticker-backend-9178b2fa5a35.herokuapp.com/api';
 
 // API Functions
 const api = {
