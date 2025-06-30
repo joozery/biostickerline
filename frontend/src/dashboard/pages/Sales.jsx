@@ -35,7 +35,7 @@ const SaleCard = ({ sale, onView, onEdit, onDelete, onVerify, onReject }) => (
           
           <div className="flex items-center space-x-2">
             <DollarSign className="w-4 h-4 text-emerald-500" />
-            <span className="text-sm font-bold text-emerald-600">฿{sale.amount.toLocaleString()}</span>
+            <span className="text-sm font-bold text-emerald-600">฿{(parseFloat(sale.amount) || 0).toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -336,7 +336,7 @@ const Sales = ({ salesData, slipsData = [], onUpdateSale, onDeleteSale, isOnline
     setViewingSale(null);
     toast({
       title: "🎉 ตรวจสอบเรียบร้อย!",
-      description: `รายการ ${sale.orderNumber || `#${sale.id}`} ของ ${sale.lineName} ยอด ฿${sale.amount.toLocaleString()} ได้รับการอนุมัติเรียบร้อยแล้ว`,
+      description: `รายการ ${sale.orderNumber || `#${sale.id}`} ของ ${sale.lineName} ยอด ฿${(parseFloat(sale.amount) || 0).toLocaleString()} ได้รับการอนุมัติเรียบร้อยแล้ว`,
       duration: 5000, // แสดง 5 วินาที
     });
   };
@@ -347,7 +347,7 @@ const Sales = ({ salesData, slipsData = [], onUpdateSale, onDeleteSale, isOnline
     setViewingSale(null);
     toast({
       title: "❌ ปฏิเสธรายการเรียบร้อย",
-      description: `รายการ ${sale.orderNumber || `#${sale.id}`} ของ ${sale.lineName} ยอด ฿${sale.amount.toLocaleString()} ถูกปฏิเสธแล้ว`,
+      description: `รายการ ${sale.orderNumber || `#${sale.id}`} ของ ${sale.lineName} ยอด ฿${(parseFloat(sale.amount) || 0).toLocaleString()} ถูกปฏิเสธแล้ว`,
       variant: "destructive",
       duration: 5000, // แสดง 5 วินาที
     });
@@ -487,7 +487,7 @@ const Sales = ({ salesData, slipsData = [], onUpdateSale, onDeleteSale, isOnline
                 <p className="font-mono bg-white px-2 py-1 rounded text-blue-800">
                   {salesData.map(s => s.orderNumber || `#${s.id}`).join(', ') || 'ไม่มีออเดอร์'}
                 </p>
-                <p>💡 หากเพิ่งส่งข้อมูลใหม่ ลองรอสักครู่แล้วรีเฟรช</p>
+                <p>💡 หากเพิ่งส่งข้อมูลใหม่ ลองรีเฟรช</p>
               </div>
             </div>
           )}
@@ -523,7 +523,7 @@ const Sales = ({ salesData, slipsData = [], onUpdateSale, onDeleteSale, isOnline
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.product}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">
-                    ฿{sale.amount.toLocaleString()}
+                    ฿{(parseFloat(sale.amount) || 0).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -645,7 +645,7 @@ const Sales = ({ salesData, slipsData = [], onUpdateSale, onDeleteSale, isOnline
                   <p><strong>หมายเลขออเดอร์:</strong> {viewingSale.orderNumber || `#${viewingSale.id}`}</p>
                   <p><strong>สินค้า:</strong> {viewingSale.product}</p>
                   <p><strong>จำนวน:</strong> {viewingSale.quantity} ชิ้น</p>
-                  <p><strong>ยอดเงิน:</strong> ฿{viewingSale.amount.toLocaleString()}</p>
+                  <p><strong>ยอดเงิน:</strong> ฿{(parseFloat(viewingSale.amount) || 0).toLocaleString()}</p>
                   <p><strong>ที่มา:</strong> {viewingSale.source}</p>
                   <p><strong>วิธีชำระเงิน:</strong> {viewingSale.paymentMethod || 'ไม่ระบุ'}</p>
                   {viewingSale.phoneNumber && <p><strong>เบอร์โทร:</strong> {viewingSale.phoneNumber}</p>}

@@ -16,7 +16,7 @@ const Accounts = ({ salesData }) => {
           orderCount: 0,
         };
       }
-      acc[sale.lineName].totalSales += sale.amount;
+      acc[sale.lineName].totalSales += parseFloat(sale.amount) || 0;
       acc[sale.lineName].orderCount += 1;
       return acc;
     }, {});

@@ -86,7 +86,7 @@ const UploadPage = ({ handleFileUpload, salesData, teams }) => {
                     <p className="font-medium text-gray-900">{sale.lineName}</p>
                     <p className="text-sm text-gray-600">{sale.product}</p>
                     <p className="text-lg font-bold text-emerald-600">
-                      ฿{sale.amount.toLocaleString()}
+                      ฿{(parseFloat(sale.amount) || 0).toLocaleString()}
                     </p>
                   </div>
                 </div>

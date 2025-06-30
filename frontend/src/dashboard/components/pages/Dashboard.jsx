@@ -108,7 +108,7 @@ const Dashboard = ({ salesData, teams }) => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-emerald-600">฿{sale.amount.toLocaleString()}</p>
+                  <p className="font-bold text-emerald-600">฿{(parseFloat(sale.amount) || 0).toLocaleString()}</p>
                   <p className="text-sm text-gray-600">{sale.date}</p>
                 </div>
               </div>

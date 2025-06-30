@@ -31,7 +31,8 @@ const Accounts = ({ salesData }) => {
           orderCount: 0,
         };
       }
-      acc[sale.lineName].totalSales += sale.amount;
+      // แปลงเป็น number ก่อนบวกเพื่อป้องกันการต่อ string
+      acc[sale.lineName].totalSales += parseFloat(sale.amount) || 0;
       acc[sale.lineName].orderCount += 1;
       return acc;
     }, {});

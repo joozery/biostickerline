@@ -25,7 +25,7 @@ const Dashboard = ({ salesData }) => {
     if (!acc[sale.lineName]) {
       acc[sale.lineName] = { totalSales: 0, orderCount: 0, lineName: sale.lineName };
     }
-    acc[sale.lineName].totalSales += sale.amount;
+          acc[sale.lineName].totalSales += parseFloat(sale.amount) || 0;
     acc[sale.lineName].orderCount += 1;
     return acc;
   }, {});
@@ -63,7 +63,7 @@ const Dashboard = ({ salesData }) => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-emerald-600">฿{sale.amount.toLocaleString()}</p>
+                  <p className="font-bold text-emerald-600">฿{(parseFloat(sale.amount) || 0).toLocaleString()}</p>
                   <p className="text-sm text-gray-600">{new Date(sale.date).toLocaleDateString('th-TH')}</p>
                 </div>
               </div>

@@ -96,7 +96,7 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(sale.date).toLocaleDateString('th-TH')}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{sale.lineName}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.product}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">฿{sale.amount.toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">฿{(parseFloat(sale.amount) || 0).toLocaleString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {sale.source === 'LINE Bot' ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -146,7 +146,7 @@ const Sales = ({ salesData, onUpdateSale, onDeleteSale }) => {
               {viewingSale.slipImage && <img src={viewingSale.slipImage} alt="สลิป" className="rounded-lg w-full" />}
               <p><strong>สินค้า:</strong> {viewingSale.product}</p>
               <p><strong>จำนวน:</strong> {viewingSale.quantity}</p>
-              <p><strong>ยอดเงิน:</strong> ฿{viewingSale.amount.toLocaleString()}</p>
+              <p><strong>ยอดเงิน:</strong> ฿{(parseFloat(viewingSale.amount) || 0).toLocaleString()}</p>
               <p><strong>ที่มา:</strong> {viewingSale.source}</p>
             </div>
           </DialogContent>
